@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>ChatGPT Voice Assistant</title>
+</head>
+
+<body>
+    <h1>ChatGPT Voice Assistant</h1>
+    <button id="start">Start conversation</button>
+    <button id="stop">Stop</button>
+    <div id="content"></div>
+    <div id="response"></div>
+
+    <script>
+        const startButton = document.querySelector('#start');
+        const stopButton = document.querySelector('#stop');
+        const contentContainer = document.querySelector('#content');
+
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition || window.msSpeechRecognition)();
+        recognition.lang = 'en-US';
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+        let p = null;
+        let processQuestion = false;
+
+        const utterance = new SpeechSynthesisUtterance();
+        utterance.voice = window.speechSynthesis.getVoices().find(voice => voice.voiceURI === "Google UK English Male");
+        //utterance.voice = window.speechSynthesis.getVoices().find(voice => voice.voiceURI === "Google UK English Female");
+        //utterance.voice = window.speechSynthesis.getVoices().find(voice => voice.voiceURI === "Google français");
+        utterance.pitch = 1;
+        utterance.rate = 1;
+        utterance.volume = 1;
+
+
+        function createDivider() {
+            var divider = document.createElement('hr');
+            // Add style to the divider
+            divider.style.height = '1px';
+            divider.style.backgroundColor = 'black';
+            divider.style.border = 'none';
+            contentContainer.appendChild(divider);
+        }
+
+        function startButtonClick(){
+            p = document.createElement('p');
+            contentContainer.appendChild(p);
+            contentContainer.appendChild(p);
+            recognition.start();
+            processQuestion = true;
+        }
+
+        function stopButtonClick(){
+            processQuestion = false;
+            recognition.stop();
+            if(synth) synth.cancel();
+        }
+
+        recognition.onresult = (event) => {
+            let e = event;
+            const transcript = Array.from(e.results)
+                .map(result => result[0])
+                .map(result => result.transcript)
+                .join('');
+
+            p.textContent = transcript;
+            if (e.results[0].isFinal) {
+                p = document.createElement('p');
+                contentContainer.appendChild(p);
+
+                var b = JSON.stringify({
+                    model: "gpt-3.5-turbo",
+                    messages: [{ role: "user", content: transcript }],
+                    temperature: 0.7
+                });
+
+
+                fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer xxxxxxxx'
+                    },
+                    body: b
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        
+                        if(!processQuestion) return;
+
+                        let p2 = document.createElement('p');
+                        contentContainer.appendChild(p2);
+                        p2 = document.createElement('p');
+                        contentContainer.appendChild(p2);
+
+                        let response = data.choices[0].message.content.trim();
+                        utterance.text = response;  
+                        window.speechSynthesis.speak(utterance);
+
+                        p2.textContent = response;
+                        createDivider();
+                    })
+                    .catch(err => console.error(err));
+            }
+        }
+
+        startButton.addEventListener('click', () => startButtonClick());
+        stopButton.addEventListener('click', () => stopButtonClick());
+    </script>
+</body>
+
+</html>
